@@ -1,0 +1,54 @@
+# Dockerfile for complete Linera deployment
+
+FROM rust:1.75-slim as builder
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add WASM target
+RUN rustup target add wasm32-unknown-unknown
+
+# Install Linera CLI
+RUN cargo install linera-client --locked
+
+WORKDIR /app
+
+# Copy contract source
+COPY Cargo.toml ./
+COPY src ./src
+
+# Build contract
+RUN cargo build --release --target wasm32-unknown-unknown
+
+# Verify WASM files
+RUN ls -la target/wasm32-unknown-unknown/release/*.wasm
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Linera CLI from builder
+COPY --from=builder /usr/local/cargo/bin/linera /usr/local/bin/
+
+# Copy built WASM files
+COPY --from=builder /app/target/wasm32-unknown-unknown/release/*.wasm /app/contract/
+
+# Copy deployment script
+COPY deploy-in-docker.sh /app/
+RUN chmod +x /app/deploy-in-docker.sh
+
+WORKDIR /app
+
+EXPOSE 8080
+
+CMD ["/app/deploy-in-docker.sh"]

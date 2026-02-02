@@ -2,7 +2,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react()
+    // Note: @cloudflare/vite-plugin is optional for static sites
+    // Only needed for Workers features (SSR, edge functions, bindings)
+  ],
   server: {
     host: '0.0.0.0',
     port: 5173,
